@@ -71,25 +71,29 @@ def feature_engineering(original_df):
 
 train_df = pd.read_csv(TRAIN_PATH)
 target = train_df['target']
+train_timestamp = train_df['timestamp']
 test_df = pd.read_csv(TEST_PATH)
 row_id = test_df['row_id']
+test_timestamp = test_df['timestamp']
 
 scaler = StandardScaler()
 # Apply the feature engineering function to the train_df
-treated_train_df = feature_engineering(train_df.drop(columns='target'))
+treated_train_df = feature_engineering(train_df.drop(columns=['target', 'timestamp']))
 columns = treated_train_df.columns
 treated_train_df = scaler.fit_transform(treated_train_df)
 treated_train_df = pd.DataFrame(treated_train_df, columns=columns)
 treated_train_df['target'] = target 
+treated_train_df['timestamp'] = train_timestamp
 treated_train_df = treated_train_df.dropna()
 treated_train_df.to_csv('data/treated_train.csv', index=False)
 
 # Apply the feature engineering function to the test_df
-treated_test_df = feature_engineering(test_df.drop(columns='row_id'))
+treated_test_df = feature_engineering(test_df.drop(columns=['row_id', 'timestamp']))
 columns = treated_test_df.columns
 treated_test_df = scaler.fit_transform(treated_test_df)
 treated_test_df = pd.DataFrame(treated_test_df, columns=columns)
 treated_test_df['row_id'] = row_id
+treated_test_df['timestamp'] = test_timestamp
 treated_test_df = treated_test_df.dropna()
 treated_test_df.to_csv('data/treated_test.csv', index=False)
 
@@ -124,6 +128,8 @@ pipeline = Pipeline([
 
 # Fit the pipeline on the train dataset
 pipeline.fit(treated_train_df.drop(columns=['target', 'timestamp']))
+
+
 
 # Transform both train and test datasets using the fitted pipeline
 svd_train_features = pipeline.transform(treated_train_df.drop(columns=['target', 'timestamp']))
