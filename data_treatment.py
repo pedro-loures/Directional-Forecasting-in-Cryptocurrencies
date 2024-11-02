@@ -103,30 +103,36 @@ new_features_test_df = treated_test_df.drop(columns=test_df.drop(columns='row_id
 
 # Get targets for test df
 targets_for_test_df = test_df['close'] / test_df['close'].shift(1)
+targets_for_test_df.index = pd.to_datetime(test_df['timestamp'].shift(-1), unit='s')
 targets_for_test_df = targets_for_test_df > 1
 targets_for_test_df = targets_for_test_df.astype(int).shift(-1)
 targets_for_test_df.dropna(inplace=True)
 
 
 
-# # Create a pipeline with StandardScaler and TruncatedSVD
-# pipeline = Pipeline([
-#     ('scaler', StandardScaler()),
-#     ('svd', TruncatedSVD(n_components=10, random_state=42))
-# ])
 
-# # Fit the pipeline on the train dataset
-# pipeline.fit(treated_train_df.drop(columns='target'))
 
-# # Transform both train and test datasets using the fitted pipeline
-# svd_train_features = pipeline.transform(treated_train_df.drop(columns='target'))
-# svd_test_features = pipeline.transform(treated_test_df.drop(columns='row_id'))
 
-# # Convert the results back to DataFrames
-# svd_train_df = pd.DataFrame(svd_train_features, columns=[f'svd_{i}' for i in range(1, 11)])
-# svd_train_df['target'] = treated_train_df['target']
-# svd_test_df = pd.DataFrame(svd_test_features, columns=[f'svd_{i}' for i in range(1, 11)])
-# svd_test_df['row_id'] = treated_test_df['row_id']
+# Create a pipeline with StandardScaler and TruncatedSVD
+pipeline = Pipeline([
+    ('scaler', StandardScaler()),
+    ('svd', TruncatedSVD(n_components=10, random_state=42))
+])
+
+# Fit the pipeline on the train dataset
+pipeline.fit(treated_train_df.drop(columns=['target', 'timestamp']))
+
+# Transform both train and test datasets using the fitted pipeline
+svd_train_features = pipeline.transform(treated_train_df.drop(columns=['target', 'timestamp']))
+svd_test_features = pipeline.transform(treated_test_df.drop(columns=['row_id', 'timestamp']))
+
+# Convert the results back to DataFrames and Use target index in svd_train_df
+svd_train_df = pd.DataFrame(svd_train_features, columns=[f'svd_{i}' for i in range(1, 11)])
+svd_train_df.index = treated_train_df.index
+svd_train_df[['target','timestamp']] = treated_train_df[['target', 'timestamp']]
+svd_test_df = pd.DataFrame(svd_test_features, columns=[f'svd_{i}' for i in range(1, 11)])
+svd_test_df.index = treated_test_df.index
+svd_test_df[['row_id', 'timestamp']] = treated_test_df[['row_id', 'timestamp']]
 
 def train_val_split(dataframe):
     # Features and target
