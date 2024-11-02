@@ -3,8 +3,7 @@ AIFC - Final.R
 data_path.txt
 ADF_results/*
 data/*
-cnn_env/*
-tranformers_env/*
+env_*
 .vscode/*
 __pycache__/*
 .wolf*
