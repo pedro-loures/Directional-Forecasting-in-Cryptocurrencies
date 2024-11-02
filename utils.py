@@ -1,8 +1,9 @@
 
+import os
 def train_val_split(dataframe):
     # Features and target
-    X = train_df.drop(columns=['target'])
-    y = train_df['target']
+    X = dataframe.drop(columns=['target'])
+    y = dataframe['target']
 
     # Split the data into training and validation sets
     X_train = X.iloc[:len(X)*4//5]
@@ -11,3 +12,9 @@ def train_val_split(dataframe):
     y_val = y.iloc[len(y)*4//5:]
     
     return X_train, y_train, X_val, y_val
+
+with open('data_path.txt', 'r') as file:
+    datapath = file.readline().strip()
+
+train_datapath = os.path.join(datapath, 'train.csv')
+test_datapath = os.path.join(datapath, 'test.csv')
