@@ -1,6 +1,7 @@
 submission.csv
 AIFC - Final.R
 data_path.txt
+submission/*
 ADF_results/*
 data/*
 env_*
