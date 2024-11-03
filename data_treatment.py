@@ -6,7 +6,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import TruncatedSVD
 from sklearn.pipeline import Pipeline
 
-
+from utils import train_val_split
+from utils import train_datapath, test_datapath
 
 
 
@@ -77,11 +78,20 @@ row_id = test_df['row_id']
 test_timestamp = test_df['timestamp']
 
 scaler = StandardScaler()
+# Create a pipeline with StandardScaler
+pipeline = Pipeline([
+    ('scaler', StandardScaler()),
+])
+
+# Fit the pipeline on the train dataset
+
+
 # Apply the feature engineering function to the train_df
 treated_train_df = feature_engineering(train_df.drop(columns=['target', 'timestamp']))
+pipeline.fit(train_df.drop(columns=['target', 'timestamp']))
 columns = treated_train_df.columns
-treated_train_df = scaler.fit_transform(treated_train_df)
-treated_train_df = pd.DataFrame(treated_train_df, columns=columns)
+treated_train_df = pipeline.transform(treated_train_df.drop(columns=['target', 'timestamp']))
+treated_test_df = pd.DataFrame(treated_train_df, columns=columns)
 treated_train_df['target'] = target 
 treated_train_df['timestamp'] = train_timestamp
 treated_train_df = treated_train_df.dropna()
@@ -90,7 +100,7 @@ treated_train_df.to_csv('data/treated_train.csv', index=False)
 # Apply the feature engineering function to the test_df
 treated_test_df = feature_engineering(test_df.drop(columns=['row_id', 'timestamp']))
 columns = treated_test_df.columns
-treated_test_df = scaler.fit_transform(treated_test_df)
+treated_test_df =  pipeline.transform(treated_test_df)
 treated_test_df = pd.DataFrame(treated_test_df, columns=columns)
 treated_test_df['row_id'] = row_id
 treated_test_df['timestamp'] = test_timestamp
@@ -117,7 +127,7 @@ targets_for_test_df.dropna(inplace=True)
 targets_for_test_df.to_csv('data/targets_for_test.csv', index=True)
 
 
-
+# ----------- Dimensionality Reduction ------------
 
 
 # Create a pipeline with StandardScaler and TruncatedSVD
@@ -144,3 +154,51 @@ svd_test_df = pd.DataFrame(svd_test_features, columns=[f'svd_{i}' for i in range
 svd_test_df.index = treated_test_df.index
 svd_test_df[['row_id', 'timestamp']] = treated_test_df[['row_id', 'timestamp']]
 svd_test_df.to_csv('data/svd_test.csv', index=False)
+
+# ------- Creating H5py model --------------
+import h5py
+
+def create_sliding_windows_batch(df, window_size, batch_size):
+    for start in range(0, len(df) - window_size + 1, batch_size):
+        end = min(start + batch_size, len(df) - window_size + 1)
+        batch_windows = [
+            df.iloc[i:i + window_size].values for i in range(start, end)
+        ]
+        yield np.array(batch_windows)
+        
+def create_h5py_file(df, window_size, batch_size, filename):
+    with h5py.File(filename, 'w') as h5f:
+        batch_index = 0
+        for batch in create_sliding_windows_batch(df, window_size, batch_size=batch_size):
+            train_images = batch.reshape(-1, window_size, df.shape[1])
+            h5f.create_dataset(f'batch_{batch_index}', data=train_images)
+            batch_index += 1
+
+train_df = pd.read_csv(train_datapath)
+test_df = pd.read_csv(test_datapath)
+
+
+window_size = 60
+batch_size = 1024
+
+# split the train_df into train and val
+X_train, y_train, X_val, y_val = train_val_split(train_df)
+X_train['target'] = y_train
+train_slice_df = X_train.copy()
+
+X_val['target'] = y_val
+val_slice_df = X_val.copy()
+
+train_file = 'data/train_images.h5'
+if not os.path.exists(train_file):
+    create_h5py_file(train_slice_df, window_size, batch_size, train_file)
+
+val_file = 'data/validation_images.h5'
+if not os.path.exists(val_file):
+    create_h5py_file(val_slice_df, window_size, batch_size, val_file)
+
+test_file = 'data/test_images.h5'
+if not os.path.exists(test_file):
+    create_h5py_file(test_df, window_size, batch_size, test_file)
+    
+del train_df, test_df, X_train, y_train, X_val, y_val, train_slice_df, val_slice_df
